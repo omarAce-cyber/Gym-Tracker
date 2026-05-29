@@ -13,6 +13,8 @@ import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/shared/providers/database_provider.dart';
 import 'package:intl/intl.dart';
 
+double _exerciseScore(WorkoutLogModel log) => log.weight * log.reps;
+
 final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
   return WorkoutRepository(databaseHelper: ref.watch(databaseHelperProvider));
 });
@@ -157,7 +159,7 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
     double? previousBestScore;
 
     for (final previous in previousLogs) {
-      final previousScore = previous.weight * previous.reps;
+      final previousScore = _exerciseScore(previous);
       if (previousBestScore == null || previousScore > previousBestScore) {
         previousBestScore = previousScore;
         previousBestWeight = previous.weight;
@@ -165,7 +167,7 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
       }
     }
 
-    final currentScore = currentLog.weight * currentLog.reps;
+    final currentScore = _exerciseScore(currentLog);
 
     items.add(
       SessionExercisePerformance(
@@ -231,8 +233,8 @@ final progressDataProvider = FutureProvider<ProgressData>((ref) async {
 
   for (final log in logs) {
     final current = bestByExercise[log.exerciseId];
-    final score = log.weight * log.reps;
-    final currentScore = current == null ? null : current.weight * current.reps;
+    final score = _exerciseScore(log);
+    final currentScore = current == null ? null : _exerciseScore(current);
     if (currentScore == null || score > currentScore) {
       bestByExercise[log.exerciseId] = log;
     }

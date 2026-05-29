@@ -8,6 +8,8 @@ import 'package:gym_tracker/features/workout/presentation/workout_screen.dart';
 import 'package:gym_tracker/features/workout/presentation/progress_screen.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
 
+const double _chartYAxisPaddingFactor = 1.2;
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -75,7 +77,7 @@ class _DashboardHomeTab extends ConsumerWidget {
                   height: 220,
                   child: BarChart(
                     BarChartData(
-                      maxY: maxY <= 0 ? 1 : maxY * 1.2,
+                      maxY: maxY <= 0 ? 1 : maxY * _chartYAxisPaddingFactor,
                       gridData: const FlGridData(show: true),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
