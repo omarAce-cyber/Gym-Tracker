@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
 
 class ProgressScreen extends ConsumerWidget {
@@ -75,7 +76,7 @@ class ProgressScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(item.exerciseName),
                   subtitle: Text('أفضل وزن: ${item.bestWeight} كجم - التكرارات: ${item.bestReps}'),
-                  trailing: Text(item.sessionDate.length >= 10 ? item.sessionDate.substring(0, 10) : item.sessionDate),
+                  trailing: Text(AppDateUtils.shortDate(item.sessionDate)),
                 ),
               );
             }),

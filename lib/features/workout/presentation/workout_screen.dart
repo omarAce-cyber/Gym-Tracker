@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/features/workout/data/models/muscle_model.dart';
 import 'package:gym_tracker/features/workout/presentation/session_detail_screen.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
@@ -38,7 +39,7 @@ class WorkoutScreen extends ConsumerWidget {
                         return Card(
                           child: ListTile(
                             leading: const Icon(Icons.calendar_today),
-                            title: Text('جلسة بتاريخ ${session.date.substring(0, session.date.length >= 10 ? 10 : session.date.length)}'),
+                            title: Text('جلسة بتاريخ ${AppDateUtils.shortDate(session.date)}'),
                             subtitle: Text('عدد التمارين: $logCount'),
                             trailing: const Icon(Icons.arrow_back_ios_new),
                             onTap: () {

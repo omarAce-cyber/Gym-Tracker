@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_model.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
 
@@ -64,7 +65,7 @@ class NutritionScreen extends ConsumerWidget {
                             leading: const Icon(Icons.history),
                             title: Text(mealName),
                             subtitle: Text(
-                              'الكمية: ${log.quantityInGram} غرام - التاريخ: ${log.date.substring(0, log.date.length >= 10 ? 10 : log.date.length)}',
+                              'الكمية: ${log.quantityInGram} غرام - التاريخ: ${AppDateUtils.shortDate(log.date)}',
                             ),
                           ),
                         );

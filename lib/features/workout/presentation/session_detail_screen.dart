@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
 
 class SessionDetailScreen extends ConsumerWidget {
@@ -23,7 +24,7 @@ class SessionDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: [
               Text(
-                'تاريخ الجلسة: ${data.session.date.substring(0, data.session.date.length >= 10 ? 10 : data.session.date.length)}',
+                'تاريخ الجلسة: ${AppDateUtils.shortDate(data.session.date)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),

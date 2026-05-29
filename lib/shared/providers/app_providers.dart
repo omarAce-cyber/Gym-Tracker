@@ -9,6 +9,7 @@ import 'package:gym_tracker/features/workout/data/models/workout_log_model.dart'
 import 'package:gym_tracker/features/workout/data/models/workout_session_model.dart';
 import 'package:gym_tracker/features/workout/data/repositories/exercise_repository.dart';
 import 'package:gym_tracker/features/workout/data/repositories/workout_repository.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/shared/providers/database_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -75,7 +76,7 @@ final weeklyVolumeProvider = FutureProvider<List<DayVolume>>((ref) async {
 
   return List.generate(7, (index) {
     final date = start.add(Duration(days: index));
-    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    final dateKey = AppDateUtils.formatDate(date);
     double dayTotal = 0;
 
     for (final session in sessions) {
@@ -154,15 +155,18 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
 
     double? previousBestWeight;
     int? previousBestReps;
+    double? previousBestScore;
 
     for (final previous in previousLogs) {
-      previousBestWeight = previousBestWeight == null
-          ? previous.weight
-          : (previous.weight > previousBestWeight ? previous.weight : previousBestWeight);
-      previousBestReps = previousBestReps == null
-          ? previous.reps
-          : (previous.reps > previousBestReps ? previous.reps : previousBestReps);
+      final previousScore = previous.weight * previous.reps;
+      if (previousBestScore == null || previousScore > previousBestScore) {
+        previousBestScore = previousScore;
+        previousBestWeight = previous.weight;
+        previousBestReps = previous.reps;
+      }
     }
+
+    final currentScore = currentLog.weight * currentLog.reps;
 
     items.add(
       SessionExercisePerformance(
@@ -170,7 +174,7 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
         exerciseName: exerciseNames[currentLog.exerciseId] ?? 'تمرين غير معروف',
         previousBestWeight: previousBestWeight,
         previousBestReps: previousBestReps,
-        isPersonalRecord: previousBestWeight == null || currentLog.weight > previousBestWeight,
+        isPersonalRecord: previousBestScore == null || currentScore > previousBestScore,
       ),
     );
   }
@@ -250,7 +254,10 @@ final progressDataProvider = FutureProvider<ProgressData>((ref) async {
   }
 
   final sortedSessions = [...sessions]..sort((a, b) => a.date.compareTo(b.date));
-  final chart = sortedSessions.take(8).map((session) {
+  final recentSessions = sortedSessions.length > 8
+      ? sortedSessions.sublist(sortedSessions.length - 8)
+      : sortedSessions;
+  final chart = recentSessions.map((session) {
     final sessionId = session.id;
     return ProgressChartPoint(
       label: session.date.length >= 10 ? session.date.substring(5, 10) : session.date,
