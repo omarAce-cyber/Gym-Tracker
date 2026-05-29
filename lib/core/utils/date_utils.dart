@@ -6,4 +6,11 @@ abstract final class AppDateUtils {
   static String formatDate(DateTime date) => _dateFormatter.format(date);
 
   static DateTime parseDate(String date) => DateTime.parse(date);
+
+  static String shortDate(String value) {
+    if (value.length >= 10) {
+      return value.substring(0, 10);
+    }
+    return value;
+  }
 }

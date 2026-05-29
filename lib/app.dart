@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gym_tracker/core/constants/app_strings.dart';
 import 'package:gym_tracker/core/constants/app_theme.dart';
-import 'package:gym_tracker/features/dashboard/presentation/dashboard_page.dart';
+import 'package:gym_tracker/features/dashboard/presentation/dashboard_screen.dart';
 
 class GymTrackerApp extends StatelessWidget {
   const GymTrackerApp({super.key});
@@ -26,7 +26,7 @@ class GymTrackerApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const DashboardPage(),
+      home: const DashboardScreen(),
     );
   }
 }
