@@ -108,9 +108,6 @@ CREATE TABLE meal_logs (
 
         await SeedData.seed(db);
       },
-      onOpen: (db) async {
-        await SeedData.seed(db);
-      },
     );
   }
 }

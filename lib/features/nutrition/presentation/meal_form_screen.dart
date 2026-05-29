@@ -7,6 +7,7 @@ import 'package:gym_tracker/shared/providers/app_providers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 class MealFormScreen extends ConsumerStatefulWidget {
   const MealFormScreen({super.key});
@@ -16,6 +17,7 @@ class MealFormScreen extends ConsumerStatefulWidget {
 }
 
 class _MealFormScreenState extends ConsumerState<MealFormScreen> {
+  static const _uuid = Uuid();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _weightController = TextEditingController();
@@ -56,13 +58,20 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (file == null) return;
-    final documents = await getApplicationDocumentsDirectory();
-    final targetPath = p.join(documents.path, 'meal_${DateTime.now().millisecondsSinceEpoch}${p.extension(file.path)}');
-    final copied = await File(file.path).copy(targetPath);
-    setState(() => _imagePath = copied.path);
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file == null) return;
+      final documents = await getApplicationDocumentsDirectory();
+      final targetPath = p.join(documents.path, 'meal_${_uuid.v4()}${p.extension(file.path)}');
+      final copied = await File(file.path).copy(targetPath);
+      setState(() => _imagePath = copied.path);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر اختيار الصورة')),
+      );
+    }
   }
 
   Future<void> _save() async {

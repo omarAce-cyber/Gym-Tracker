@@ -34,9 +34,7 @@ final currentUserProvider = FutureProvider<UserModel>((ref) async {
 });
 
 final usersProvider = FutureProvider<List<UserModel>>((ref) async {
-  final db = await ref.watch(databaseHelperProvider).database;
-  final rows = await db.query('users', orderBy: 'id ASC');
-  return rows.map(UserModel.fromMap).toList();
+  return ref.watch(profileRepositoryProvider).getAllUsers();
 });
 
 class WorkoutSessionsNotifier extends AsyncNotifier<List<WorkoutSessionModel>> {

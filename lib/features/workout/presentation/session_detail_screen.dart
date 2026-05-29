@@ -90,6 +90,7 @@ class SessionDetailScreen extends ConsumerWidget {
                       FilledButton(
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) return;
+                          final enteredWeight = double.parse(weightController.text);
                           final user = await ref.read(currentUserProvider.future);
                           final previousPr = await ref.read(workoutRepositoryProvider).getPreviousBestWeight(
                                 exerciseId: selectedExerciseId!,
@@ -100,7 +101,7 @@ class SessionDetailScreen extends ConsumerWidget {
                                 WorkoutLogModel(
                                   workoutSessionId: sessionId,
                                   exerciseId: selectedExerciseId!,
-                                  weight: double.parse(weightController.text),
+                                  weight: enteredWeight,
                                   reps: int.parse(repsController.text),
                                   sets: int.parse(setsController.text),
                                 ),
@@ -111,8 +112,7 @@ class SessionDetailScreen extends ConsumerWidget {
                           ref.invalidate(exercisesWithLogsProvider);
                           ref.invalidate(exercisePrMapProvider);
                           if (ctx.mounted) Navigator.of(ctx).pop();
-                          final newWeight = double.parse(weightController.text);
-                          if (context.mounted && (previousPr == null || newWeight > previousPr)) {
+                          if (context.mounted && (previousPr == null || enteredWeight > previousPr)) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('🏆 رقم قياسي جديد!')),
                             );
@@ -131,7 +131,7 @@ class SessionDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteLog(BuildContext context, WidgetRef ref, int logId) async {
+  Future<bool> _deleteLog(BuildContext context, WidgetRef ref, int logId) async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'حذف التمرين',
@@ -139,13 +139,14 @@ class SessionDetailScreen extends ConsumerWidget {
       confirmLabel: 'حذف',
       isDestructive: true,
     );
-    if (!confirmed) return;
+    if (!confirmed) return false;
     await ref.read(workoutRepositoryProvider).deleteWorkoutLog(logId);
     ref.invalidate(workoutLogsProvider);
     ref.invalidate(sessionDetailProvider(sessionId));
     ref.invalidate(weeklySetsByMuscleProvider);
     ref.invalidate(exercisesWithLogsProvider);
     ref.invalidate(exercisePrMapProvider);
+    return true;
   }
 
   @override
@@ -194,8 +195,7 @@ class SessionDetailScreen extends ConsumerWidget {
                   key: ValueKey(logId),
                   direction: DismissDirection.endToStart,
                   confirmDismiss: (_) async {
-                    await _deleteLog(context, ref, logId);
-                    return false;
+                    return _deleteLog(context, ref, logId);
                   },
                   background: Container(
                     alignment: Alignment.centerLeft,

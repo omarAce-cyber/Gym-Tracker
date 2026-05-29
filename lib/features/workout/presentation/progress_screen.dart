@@ -29,11 +29,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             const SizedBox(height: 8),
             if (items.isEmpty) const Text('لا توجد بيانات تمارين حتى الآن'),
             ...items.map((exercise) {
-              final pr = prs.asData?.value[exercise.id] ?? 0;
+              final pr = prs.asData?.value[exercise.id];
               return Card(
                 child: ListTile(
                   title: Text(exercise.name),
-                  subtitle: Text('أفضل وزن: ${pr.toStringAsFixed(1)} كجم'),
+                  subtitle: Text(pr == null ? 'أفضل وزن: لا يوجد' : 'أفضل وزن: ${pr.toStringAsFixed(1)} كجم'),
                   trailing: const Icon(Icons.show_chart),
                   onTap: () => setState(() => _selectedExerciseId = exercise.id),
                 ),
