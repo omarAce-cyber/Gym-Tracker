@@ -47,4 +47,22 @@ class ProfileRepository {
     final db = await _databaseHelper.database;
     return db.delete('users', where: 'id = ?', whereArgs: [id]);
   }
+
+  Future<UserModel> getOrCreateDefaultUser() async {
+    final users = await getAllUsers();
+    if (users.isNotEmpty) return users.first;
+    final user = UserModel(
+      name: 'المستخدم',
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    final id = await createUser(user);
+    return UserModel(
+      id: id,
+      name: user.name,
+      weight: user.weight,
+      height: user.height,
+      goal: user.goal,
+      createdAt: user.createdAt,
+    );
+  }
 }

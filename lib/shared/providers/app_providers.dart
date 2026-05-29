@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gym_tracker/core/utils/nutrition_calculator.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_log_model.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_model.dart';
 import 'package:gym_tracker/features/nutrition/data/repositories/nutrition_repository.dart';
@@ -10,11 +11,7 @@ import 'package:gym_tracker/features/workout/data/models/workout_log_model.dart'
 import 'package:gym_tracker/features/workout/data/models/workout_session_model.dart';
 import 'package:gym_tracker/features/workout/data/repositories/exercise_repository.dart';
 import 'package:gym_tracker/features/workout/data/repositories/workout_repository.dart';
-import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/shared/providers/database_provider.dart';
-import 'package:intl/intl.dart';
-
-double _exerciseScore(WorkoutLogModel log) => log.weight * log.reps;
 
 final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
   return WorkoutRepository(databaseHelper: ref.watch(databaseHelperProvider));
@@ -32,87 +29,86 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository(databaseHelper: ref.watch(databaseHelperProvider));
 });
 
-final usersProvider = FutureProvider<List<UserModel>>((ref) async {
-  final db = await ref.watch(databaseHelperProvider).database;
-  final rows = await db.query('users', orderBy: 'id DESC');
-  return rows.map(UserModel.fromMap).toList();
+final currentUserProvider = FutureProvider<UserModel>((ref) async {
+  return ref.watch(profileRepositoryProvider).getOrCreateDefaultUser();
 });
 
-final workoutSessionsProvider = FutureProvider<List<WorkoutSessionModel>>((ref) {
-  return ref.watch(workoutRepositoryProvider).getAllWorkoutSessions();
+final usersProvider = FutureProvider<List<UserModel>>((ref) async {
+  return ref.watch(profileRepositoryProvider).getAllUsers();
 });
+
+class WorkoutSessionsNotifier extends AsyncNotifier<List<WorkoutSessionModel>> {
+  @override
+  Future<List<WorkoutSessionModel>> build() async {
+    final user = await ref.watch(currentUserProvider.future);
+    return ref.watch(workoutRepositoryProvider).getWorkoutSessionsByUserId(user.id!);
+  }
+}
+
+final workoutSessionsProvider = AsyncNotifierProvider<WorkoutSessionsNotifier, List<WorkoutSessionModel>>(
+  WorkoutSessionsNotifier.new,
+);
 
 final workoutLogsProvider = FutureProvider<List<WorkoutLogModel>>((ref) {
   return ref.watch(workoutRepositoryProvider).getAllWorkoutLogs();
 });
 
-final exercisesProvider = FutureProvider<List<ExerciseModel>>((ref) {
-  return ref.watch(exerciseRepositoryProvider).getAllExercises();
-});
+class ExercisesNotifier extends AsyncNotifier<List<ExerciseModel>> {
+  @override
+  Future<List<ExerciseModel>> build() async {
+    return ref.watch(exerciseRepositoryProvider).getAllExercises();
+  }
+}
+
+final exercisesProvider = AsyncNotifierProvider<ExercisesNotifier, List<ExerciseModel>>(
+  ExercisesNotifier.new,
+);
 
 final musclesProvider = FutureProvider<List<MuscleModel>>((ref) {
   return ref.watch(exerciseRepositoryProvider).getAllMuscles();
 });
 
-final mealsProvider = FutureProvider<List<MealModel>>((ref) {
-  return ref.watch(nutritionRepositoryProvider).getAllMeals();
-});
-
-final mealLogsProvider = FutureProvider<List<MealLogModel>>((ref) {
-  return ref.watch(nutritionRepositoryProvider).getAllMealLogs();
-});
-
-class DayVolume {
-  const DayVolume({required this.dayLabel, required this.volume});
-
-  final String dayLabel;
-  final double volume;
+class MealsNotifier extends AsyncNotifier<List<MealModel>> {
+  @override
+  Future<List<MealModel>> build() async {
+    final user = await ref.watch(currentUserProvider.future);
+    return ref.watch(nutritionRepositoryProvider).getMealsByUserId(user.id!);
+  }
 }
 
-final weeklyVolumeProvider = FutureProvider<List<DayVolume>>((ref) async {
-  final sessions = await ref.watch(workoutSessionsProvider.future);
-  final logs = await ref.watch(workoutLogsProvider.future);
-  final now = DateTime.now();
-  final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
-  final sessionVolumeById = <int, double>{};
+final mealsProvider = AsyncNotifierProvider<MealsNotifier, List<MealModel>>(MealsNotifier.new);
 
-  for (final log in logs) {
-    final volume = log.weight * log.reps * log.sets;
-    sessionVolumeById[log.workoutSessionId] = (sessionVolumeById[log.workoutSessionId] ?? 0) + volume;
-  }
-
-  return List.generate(7, (index) {
-    final date = start.add(Duration(days: index));
-    final dateKey = AppDateUtils.formatDate(date);
-    double dayTotal = 0;
-
-    for (final session in sessions) {
-      final sessionId = session.id;
-      if (sessionId != null && session.date.startsWith(dateKey)) {
-        dayTotal += sessionVolumeById[sessionId] ?? 0;
-      }
-    }
-
-    return DayVolume(
-      dayLabel: DateFormat('E', 'ar').format(date),
-      volume: dayTotal,
-    );
-  });
+final mealLogsProvider = FutureProvider<List<MealLogModel>>((ref) async {
+  final user = await ref.watch(currentUserProvider.future);
+  return ref.watch(nutritionRepositoryProvider).getMealLogsByUserId(user.id!);
 });
+
+class DailyNutritionNotifier extends AsyncNotifier<NutritionSummary> {
+  @override
+  Future<NutritionSummary> build() async {
+    final user = await ref.watch(currentUserProvider.future);
+    return ref.watch(nutritionRepositoryProvider).getDailyNutritionSummary(
+      userId: user.id!,
+      date: DateTime.now(),
+    );
+  }
+}
+
+final dailyNutritionProvider = AsyncNotifierProvider<DailyNutritionNotifier, NutritionSummary>(
+  DailyNutritionNotifier.new,
+);
 
 class SessionExercisePerformance {
   const SessionExercisePerformance({
     required this.log,
     required this.exerciseName,
-    required this.previousBestWeight,
-    required this.previousBestReps,
+    required this.previousHint,
     required this.isPersonalRecord,
   });
 
   final WorkoutLogModel log;
   final String exerciseName;
-  final double? previousBestWeight;
-  final int? previousBestReps;
+  final String? previousHint;
   final bool isPersonalRecord;
 }
 
@@ -139,48 +135,38 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
   }
   if (session == null) return null;
 
-  final exerciseNames = <int, String>{
-    for (final exercise in exercises)
-      if (exercise.id != null) exercise.id!: exercise.name,
+  final exerciseNames = <int, String>{for (final e in exercises) if (e.id != null) e.id!: e.name};
+  final sessionById = <int, WorkoutSessionModel>{
+    for (final s in sessions)
+      if (s.id != null) s.id!: s,
   };
 
-  final sessionsById = <int, WorkoutSessionModel>{
-    for (final item in sessions)
-      if (item.id != null) item.id!: item,
-  };
-  final currentLogs = logs.where((item) => item.workoutSessionId == sessionId).toList();
+  final currentLogs = logs.where((log) => log.workoutSessionId == sessionId).toList();
   final items = <SessionExercisePerformance>[];
-
-  for (final currentLog in currentLogs) {
-    final previousLogs = logs.where((candidate) {
-      if (candidate.exerciseId != currentLog.exerciseId) return false;
-      final candidateSession = sessionsById[candidate.workoutSessionId];
-      if (candidateSession == null) return false;
-      return candidateSession.date.compareTo(session.date) < 0;
-    }).toList();
-
-    double? previousBestWeight;
-    int? previousBestReps;
-    double? previousBestScore;
-
-    for (final previous in previousLogs) {
-      final previousScore = _exerciseScore(previous);
-      if (previousBestScore == null || previousScore > previousBestScore) {
-        previousBestScore = previousScore;
-        previousBestWeight = previous.weight;
-        previousBestReps = previous.reps;
-      }
-    }
-
-    final currentScore = _exerciseScore(currentLog);
-
+  for (final log in currentLogs) {
+    final related = logs.where((x) => x.exerciseId == log.exerciseId).toList()
+      ..sort((a, b) {
+        final dateA = sessionById[a.workoutSessionId]?.date ?? '';
+        final dateB = sessionById[b.workoutSessionId]?.date ?? '';
+        final comp = dateA.compareTo(dateB);
+        if (comp != 0) return comp;
+        return (a.id ?? 0).compareTo(b.id ?? 0);
+      });
+    final index = related.indexWhere((x) => x.id == log.id);
+    WorkoutLogModel? previous;
+    if (index > 0) previous = related[index - 1];
+    final maxWeightBefore = related
+        .where((x) => x.id != log.id)
+        .map((x) => x.weight)
+        .fold<double?>(null, (acc, item) => acc == null || item > acc ? item : acc);
     items.add(
       SessionExercisePerformance(
-        log: currentLog,
-        exerciseName: exerciseNames[currentLog.exerciseId] ?? 'تمرين غير معروف',
-        previousBestWeight: previousBestWeight,
-        previousBestReps: previousBestReps,
-        isPersonalRecord: previousBestScore == null || currentScore > previousBestScore,
+        log: log,
+        exerciseName: exerciseNames[log.exerciseId] ?? 'تمرين غير معروف',
+        previousHint: previous == null
+            ? null
+            : 'آخر مرة: ${previous.weight} كجم × ${previous.reps} تكرار × ${previous.sets} مجموعات',
+        isPersonalRecord: maxWeightBefore == null || log.weight > maxWeightBefore,
       ),
     );
   }
@@ -188,90 +174,101 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
   return SessionDetailData(session: session, items: items);
 });
 
-class ExercisePr {
-  const ExercisePr({
-    required this.exerciseName,
-    required this.bestWeight,
-    required this.bestReps,
-    required this.sessionDate,
-  });
+final weeklySetsByMuscleProvider = FutureProvider<Map<String, int>>((ref) async {
+  final user = await ref.watch(currentUserProvider.future);
+  return ref.watch(workoutRepositoryProvider).getWeeklySetsByMuscle(user.id!);
+});
 
-  final String exerciseName;
-  final double bestWeight;
-  final int bestReps;
-  final String sessionDate;
-}
-
-class ProgressChartPoint {
-  const ProgressChartPoint({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final double value;
-}
-
-class ProgressData {
-  const ProgressData({
-    required this.prs,
-    required this.chart,
-  });
-
-  final List<ExercisePr> prs;
-  final List<ProgressChartPoint> chart;
-}
-
-final progressDataProvider = FutureProvider<ProgressData>((ref) async {
+final recentSessionsProvider = FutureProvider<List<WorkoutSessionModel>>((ref) async {
   final sessions = await ref.watch(workoutSessionsProvider.future);
-  final logs = await ref.watch(workoutLogsProvider.future);
-  final exercises = await ref.watch(exercisesProvider.future);
-  final exerciseNames = <int, String>{
-    for (final item in exercises)
-      if (item.id != null) item.id!: item.name,
-  };
-  final sessionsById = <int, WorkoutSessionModel>{
-    for (final item in sessions)
-      if (item.id != null) item.id!: item,
-  };
-  final bestByExercise = <int, WorkoutLogModel>{};
+  return sessions.take(3).toList();
+});
 
-  for (final log in logs) {
-    final current = bestByExercise[log.exerciseId];
-    final score = _exerciseScore(log);
-    final currentScore = current == null ? null : _exerciseScore(current);
-    if (currentScore == null || score > currentScore) {
-      bestByExercise[log.exerciseId] = log;
-    }
-  }
+class DailyMealLogItem {
+  const DailyMealLogItem({
+    required this.id,
+    required this.mealName,
+    required this.quantityInGram,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
 
-  final prs = bestByExercise.entries.map((entry) {
-    final sessionDate = sessionsById[entry.value.workoutSessionId]?.date ?? '';
-    return ExercisePr(
-      exerciseName: exerciseNames[entry.key] ?? 'تمرين غير معروف',
-      bestWeight: entry.value.weight,
-      bestReps: entry.value.reps,
-      sessionDate: sessionDate,
+  final int id;
+  final String mealName;
+  final double quantityInGram;
+  final double calories;
+  final double protein;
+  final double carbs;
+  final double fat;
+}
+
+final todayMealLogsProvider = FutureProvider<List<DailyMealLogItem>>((ref) async {
+  final user = await ref.watch(currentUserProvider.future);
+  final rows = await ref.watch(nutritionRepositoryProvider).getMealLogsWithMealsByDate(
+    userId: user.id!,
+    date: DateTime.now(),
+  );
+  return rows.map((row) {
+    final scaled = NutritionCalculator.scaleByWeight(
+      baseWeightGram: (row['base_weight_in_gram'] as num).toDouble(),
+      targetWeightGram: (row['quantity_in_gram'] as num).toDouble(),
+      protein: (row['protein'] as num).toDouble(),
+      carbs: (row['carbs'] as num).toDouble(),
+      fat: (row['fat'] as num).toDouble(),
+      calories: (row['calories'] as num).toDouble(),
     );
-  }).toList()
-    ..sort((a, b) => b.bestWeight.compareTo(a.bestWeight));
-
-  final sessionVolume = <int, double>{};
-  for (final log in logs) {
-    sessionVolume[log.workoutSessionId] = (sessionVolume[log.workoutSessionId] ?? 0) + (log.weight * log.reps * log.sets);
-  }
-
-  final sortedSessions = [...sessions]..sort((a, b) => a.date.compareTo(b.date));
-  final recentSessions = sortedSessions.length > 8
-      ? sortedSessions.sublist(sortedSessions.length - 8)
-      : sortedSessions;
-  final chart = recentSessions.map((session) {
-    final sessionId = session.id;
-    return ProgressChartPoint(
-      label: session.date.length >= 10 ? session.date.substring(5, 10) : session.date,
-      value: sessionId == null ? 0 : (sessionVolume[sessionId] ?? 0),
+    return DailyMealLogItem(
+      id: row['id'] as int,
+      mealName: row['meal_name'] as String? ?? 'وجبة',
+      quantityInGram: (row['quantity_in_gram'] as num).toDouble(),
+      calories: scaled.calories,
+      protein: scaled.protein,
+      carbs: scaled.carbs,
+      fat: scaled.fat,
     );
   }).toList();
+});
 
-  return ProgressData(prs: prs, chart: chart);
+class ExerciseHistoryPoint {
+  const ExerciseHistoryPoint({
+    required this.date,
+    required this.weight,
+  });
+
+  final String date;
+  final double weight;
+}
+
+final exercisesWithLogsProvider = FutureProvider<List<ExerciseModel>>((ref) async {
+  final exercises = await ref.watch(exercisesProvider.future);
+  final logs = await ref.watch(workoutLogsProvider.future);
+  final usedIds = logs.map((e) => e.exerciseId).toSet();
+  return exercises.where((e) => e.id != null && usedIds.contains(e.id)).toList();
+});
+
+final exercisePrMapProvider = FutureProvider<Map<int, double>>((ref) async {
+  final logs = await ref.watch(workoutLogsProvider.future);
+  final result = <int, double>{};
+  for (final log in logs) {
+    final current = result[log.exerciseId];
+    if (current == null || log.weight > current) {
+      result[log.exerciseId] = log.weight;
+    }
+  }
+  return result;
+});
+
+final exerciseHistoryProvider = FutureProvider.family<List<ExerciseHistoryPoint>, int>((ref, exerciseId) async {
+  final user = await ref.watch(currentUserProvider.future);
+  final rows = await ref.watch(workoutRepositoryProvider).getExerciseHistory(exerciseId, user.id!);
+  return rows
+      .map(
+        (row) => ExerciseHistoryPoint(
+          date: row['session_date'] as String,
+          weight: (row['weight'] as num).toDouble(),
+        ),
+      )
+      .toList();
 });

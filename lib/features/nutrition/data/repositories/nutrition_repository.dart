@@ -1,4 +1,6 @@
 import 'package:gym_tracker/core/database/database_helper.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
+import 'package:gym_tracker/core/utils/nutrition_calculator.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_log_model.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_model.dart';
 
@@ -164,5 +166,62 @@ class NutritionRepository {
   Future<int> deleteMealLog(int id) async {
     final db = await _databaseHelper.database;
     return db.delete('meal_logs', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getMealLogsWithMealsByDate({
+    required int userId,
+    required DateTime date,
+  }) async {
+    final db = await _databaseHelper.database;
+    final dateKey = AppDateUtils.formatDate(date);
+    return db.rawQuery(
+      '''
+      SELECT
+        ml.id AS id,
+        ml.user_id AS user_id,
+        ml.meal_id AS meal_id,
+        ml.date AS date,
+        ml.quantity_in_gram AS quantity_in_gram,
+        m.name AS meal_name,
+        m.protein AS protein,
+        m.carbs AS carbs,
+        m.fat AS fat,
+        m.calories AS calories,
+        m.weight_in_gram AS base_weight_in_gram
+      FROM meal_logs ml
+      INNER JOIN meals m ON m.id = ml.meal_id
+      WHERE ml.user_id = ? AND ml.date = ?
+      ORDER BY ml.id DESC
+      ''',
+      [userId, dateKey],
+    );
+  }
+
+  Future<NutritionSummary> getDailyNutritionSummary({
+    required int userId,
+    required DateTime date,
+  }) async {
+    final rows = await getMealLogsWithMealsByDate(userId: userId, date: date);
+    double protein = 0;
+    double carbs = 0;
+    double fat = 0;
+    double calories = 0;
+
+    for (final row in rows) {
+      final summary = NutritionCalculator.scaleByWeight(
+        baseWeightGram: (row['base_weight_in_gram'] as num).toDouble(),
+        targetWeightGram: (row['quantity_in_gram'] as num).toDouble(),
+        protein: (row['protein'] as num).toDouble(),
+        carbs: (row['carbs'] as num).toDouble(),
+        fat: (row['fat'] as num).toDouble(),
+        calories: (row['calories'] as num).toDouble(),
+      );
+      protein += summary.protein;
+      carbs += summary.carbs;
+      fat += summary.fat;
+      calories += summary.calories;
+    }
+
+    return NutritionSummary(protein: protein, carbs: carbs, fat: fat, calories: calories);
   }
 }

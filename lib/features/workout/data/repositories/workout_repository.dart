@@ -171,4 +171,61 @@ class WorkoutRepository {
       whereArgs: [workoutSessionId],
     );
   }
+
+  Future<Map<String, int>> getWeeklySetsByMuscle(int userId) async {
+    final db = await _databaseHelper.database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final startDate =
+        '${start.year.toString().padLeft(4, '0')}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+    final rows = await db.rawQuery(
+      '''
+      SELECT m.name AS muscle_name, COALESCE(SUM(wl.sets), 0) AS total_sets
+      FROM workout_logs wl
+      INNER JOIN workout_sessions ws ON ws.id = wl.workout_session_id
+      INNER JOIN exercises e ON e.id = wl.exercise_id
+      INNER JOIN muscles m ON m.id = e.target_muscle_id
+      WHERE ws.user_id = ? AND ws.date >= ?
+      GROUP BY m.id, m.name
+      ORDER BY m.id ASC
+      ''',
+      [userId, startDate],
+    );
+    return {
+      for (final row in rows) row['muscle_name'] as String: (row['total_sets'] as num?)?.toInt() ?? 0,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> getExerciseHistory(int exerciseId, int userId) async {
+    final db = await _databaseHelper.database;
+    return db.rawQuery(
+      '''
+      SELECT ws.date AS session_date, wl.weight AS weight, wl.reps AS reps, wl.sets AS sets
+      FROM workout_logs wl
+      INNER JOIN workout_sessions ws ON ws.id = wl.workout_session_id
+      WHERE wl.exercise_id = ? AND ws.user_id = ?
+      ORDER BY ws.date ASC, wl.id ASC
+      ''',
+      [exerciseId, userId],
+    );
+  }
+
+  Future<double?> getPreviousBestWeight({
+    required int exerciseId,
+    required int userId,
+    required int beforeSessionId,
+  }) async {
+    final db = await _databaseHelper.database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT MAX(wl.weight) AS best_weight
+      FROM workout_logs wl
+      INNER JOIN workout_sessions ws ON ws.id = wl.workout_session_id
+      WHERE wl.exercise_id = ? AND ws.user_id = ? AND ws.id <> ?
+      ''',
+      [exerciseId, userId, beforeSessionId],
+    );
+    if (rows.isEmpty || rows.first['best_weight'] == null) return null;
+    return (rows.first['best_weight'] as num).toDouble();
+  }
 }
