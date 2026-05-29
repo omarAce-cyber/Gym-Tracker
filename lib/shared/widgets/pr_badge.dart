@@ -25,8 +25,8 @@ class PrBadge extends StatelessWidget {
           colors: isNew
               ? [AppColors.warning, Colors.orange[300]!]
               : [AppColors.primary, AppColors.secondary],
-          begin: Alignment.centerRight,
-          end: Alignment.centerLeft,
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [

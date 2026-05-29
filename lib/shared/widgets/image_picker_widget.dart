@@ -75,19 +75,32 @@ class ImagePickerWidget extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.primary.withAlpha(80), width: 2),
-          image: hasImage
-              ? DecorationImage(
-                  image: FileImage(File(imagePath!)),
-                  fit: BoxFit.cover,
-                )
-              : null,
         ),
         child: hasImage
-            ? null
+            ? Image.file(
+                File(imagePath!),
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_outlined,
+                        size: size * 0.35, color: Colors.grey[500]),
+                    const SizedBox(height: 4),
+                    Text(
+                      'تعذّر تحميل الصورة',
+                      style: TextStyle(
+                          fontSize: size * 0.11, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              )
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
