@@ -149,8 +149,7 @@ final sessionDetailProvider = FutureProvider.family<SessionDetailData?, int>((re
       if (candidate.exerciseId != currentLog.exerciseId) return false;
       final candidateSession = sessionsById[candidate.workoutSessionId];
       if (candidateSession == null) return false;
-      if (candidateSession.date.compareTo(session.date) < 0) return true;
-      return candidateSession.date == session.date && candidate.workoutSessionId != sessionId;
+      return candidateSession.date.compareTo(session.date) < 0;
     }).toList();
 
     double? previousBestWeight;
@@ -232,7 +231,9 @@ final progressDataProvider = FutureProvider<ProgressData>((ref) async {
 
   for (final log in logs) {
     final current = bestByExercise[log.exerciseId];
-    if (current == null || log.weight > current.weight) {
+    final score = log.weight * log.reps;
+    final currentScore = current == null ? null : current.weight * current.reps;
+    if (currentScore == null || score > currentScore) {
       bestByExercise[log.exerciseId] = log;
     }
   }
