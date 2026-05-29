@@ -2,13 +2,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gym_tracker/core/constants/app_strings.dart';
+import 'package:gym_tracker/core/utils/date_utils.dart';
 import 'package:gym_tracker/features/nutrition/presentation/nutrition_screen.dart';
 import 'package:gym_tracker/features/profile/presentation/profile_screen.dart';
-import 'package:gym_tracker/features/workout/presentation/workout_screen.dart';
 import 'package:gym_tracker/features/workout/presentation/progress_screen.dart';
+import 'package:gym_tracker/features/workout/presentation/workout_screen.dart';
 import 'package:gym_tracker/shared/providers/app_providers.dart';
-
-const double _chartYAxisPaddingFactor = 1.2;
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -53,104 +52,91 @@ class _DashboardHomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final weeklyVolume = ref.watch(weeklyVolumeProvider);
-    final sessions = ref.watch(workoutSessionsProvider);
-    final meals = ref.watch(mealLogsProvider);
+    final weeklySets = ref.watch(weeklySetsByMuscleProvider);
+    final recentSessions = ref.watch(recentSessionsProvider);
+    final dailyNutrition = ref.watch(dailyNutritionProvider);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'ملخص هذا الأسبوع',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        const Text('الحجم الأسبوعي (مجموعات)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: weeklyVolume.when(
-              data: (points) {
-                final maxY = points.isEmpty
-                    ? 1.0
-                    : points.map((e) => e.volume).reduce((a, b) => a > b ? a : b);
+            child: weeklySets.when(
+              data: (data) {
+                final entries = data.entries.toList();
+                if (entries.isEmpty) return const SizedBox(height: 220, child: Center(child: Text('لا توجد بيانات')));
+                final maxY = entries.map((e) => e.value.toDouble()).reduce((a, b) => a > b ? a : b);
                 return SizedBox(
                   height: 220,
                   child: BarChart(
                     BarChartData(
-                      maxY: maxY <= 0 ? 1 : maxY * _chartYAxisPaddingFactor,
+                      maxY: maxY <= 0 ? 1 : maxY + 2,
                       gridData: const FlGridData(show: true),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
                         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        leftTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: true, reservedSize: 36),
-                        ),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             getTitlesWidget: (value, _) {
-                              final index = value.toInt();
-                              if (index < 0 || index >= points.length) return const SizedBox.shrink();
+                              final i = value.toInt();
+                              if (i < 0 || i >= entries.length) return const SizedBox.shrink();
                               return Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: Text(points[index].dayLabel),
+                                child: Text(entries[i].key, style: const TextStyle(fontSize: 10)),
                               );
                             },
                           ),
                         ),
                       ),
-                      barGroups: List.generate(points.length, (index) {
-                        return BarChartGroupData(
-                          x: index,
-                          barRods: [
-                            BarChartRodData(
-                              toY: points[index].volume,
-                              width: 18,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ],
-                        );
-                      }),
+                      barGroups: List.generate(
+                        entries.length,
+                        (i) => BarChartGroupData(
+                          x: i,
+                          barRods: [BarChartRodData(toY: entries[i].value.toDouble(), width: 14)],
+                        ),
+                      ),
                     ),
                   ),
                 );
               },
-              loading: () => const SizedBox(
-                height: 220,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => const SizedBox(
-                height: 220,
-                child: Center(child: Text('تعذر تحميل الرسم الأسبوعي')),
-              ),
+              loading: () => const SizedBox(height: 220, child: Center(child: CircularProgressIndicator())),
+              error: (_, __) => const SizedBox(height: 220, child: Center(child: Text('تعذر تحميل الرسم'))),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryCard(
-                title: 'جلسات التمرين',
-                value: sessions.when(
-                  data: (data) => '${data.length}',
-                  loading: () => '...',
-                  error: (_, __) => '-',
-                ),
-              ),
-            ),
-            Expanded(
-              child: _SummaryCard(
-                title: 'سجلات التغذية',
-                value: meals.when(
-                  data: (data) => '${data.length}',
-                  loading: () => '...',
-                  error: (_, __) => '-',
-                ),
-              ),
-            ),
-          ],
+        dailyNutrition.when(
+          data: (summary) => _SummaryCard(title: 'سعرات اليوم', value: summary.calories.toStringAsFixed(0)),
+          loading: () => const _SummaryCard(title: 'سعرات اليوم', value: '...'),
+          error: (_, __) => const _SummaryCard(title: 'سعرات اليوم', value: '-'),
+        ),
+        const SizedBox(height: 12),
+        const Text('آخر 3 جلسات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        recentSessions.when(
+          data: (sessions) {
+            if (sessions.isEmpty) return const Text('لا توجد جلسات');
+            return Column(
+              children: sessions
+                  .map(
+                    (session) => Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.fitness_center),
+                        title: Text(AppDateUtils.shortDate(session.date)),
+                        subtitle: Text(session.notes ?? 'بدون ملاحظات'),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const Text('تعذر تحميل الجلسات'),
         ),
       ],
     );
@@ -168,15 +154,11 @@ class _SummaryCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(title),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
