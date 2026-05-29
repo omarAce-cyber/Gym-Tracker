@@ -3,6 +3,7 @@ import 'package:gym_tracker/features/nutrition/data/models/meal_log_model.dart';
 import 'package:gym_tracker/features/nutrition/data/models/meal_model.dart';
 import 'package:gym_tracker/features/nutrition/data/repositories/nutrition_repository.dart';
 import 'package:gym_tracker/features/profile/data/models/user_model.dart';
+import 'package:gym_tracker/features/profile/data/repositories/profile_repository.dart';
 import 'package:gym_tracker/features/workout/data/models/exercise_model.dart';
 import 'package:gym_tracker/features/workout/data/models/muscle_model.dart';
 import 'package:gym_tracker/features/workout/data/models/workout_log_model.dart';
@@ -25,6 +26,10 @@ final exerciseRepositoryProvider = Provider<ExerciseRepository>((ref) {
 
 final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {
   return NutritionRepository(databaseHelper: ref.watch(databaseHelperProvider));
+});
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepository(databaseHelper: ref.watch(databaseHelperProvider));
 });
 
 final usersProvider = FutureProvider<List<UserModel>>((ref) async {
